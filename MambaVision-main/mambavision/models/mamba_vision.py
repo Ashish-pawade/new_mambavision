@@ -567,6 +567,7 @@ class MambaVisionLayer(nn.Module):
                  layer_scale_conv=None,
                  transformer_blocks = [],
                  mixer_type: str = "attn",
+                 global_mixer: bool = False,
     ):
         """
         Args:
@@ -586,6 +587,8 @@ class MambaVisionLayer(nn.Module):
             layer_scale: layer scaling coefficient.
             layer_scale_conv: conv layer scaling coefficient.
             transformer_blocks: list of transformer blocks.
+            global_mixer: if True, transformer stages run on the full [B, H*W, C]
+                sequence instead of partitioned windows.
         """
 
         super().__init__()
@@ -616,11 +619,17 @@ class MambaVisionLayer(nn.Module):
         self.downsample = None if not downsample else Downsample(dim=dim)
         self.do_gt = False
         self.window_size = window_size
+        self.global_mixer = global_mixer
 
     def forward(self, x):
-        _, _, H, W = x.shape
+        B, _, H, W = x.shape
 
-        if self.transformer_block:
+        if self.transformer_block and self.global_mixer:
+            x = x.permute(0, 2, 3, 1).reshape(B, H * W, -1)
+            for _, blk in enumerate(self.blocks):
+                x = blk(x)
+            x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        elif self.transformer_block:
             pad_r = (self.window_size - W % self.window_size) % self.window_size
             pad_b = (self.window_size - H % self.window_size) % self.window_size
             if pad_r > 0 or pad_b > 0:
@@ -629,13 +638,15 @@ class MambaVisionLayer(nn.Module):
             else:
                 Hp, Wp = H, W
             x = window_partition(x, self.window_size)
-
-        for _, blk in enumerate(self.blocks):
-            x = blk(x)
-        if self.transformer_block:
+            for _, blk in enumerate(self.blocks):
+                x = blk(x)
             x = window_reverse(x, self.window_size, Hp, Wp)
             if pad_r > 0 or pad_b > 0:
                 x = x[:, :, :H, :W].contiguous()
+        else:
+            for _, blk in enumerate(self.blocks):
+                x = blk(x)
+
         if self.downsample is None:
             return x
         return self.downsample(x)
@@ -663,6 +674,7 @@ class MambaVision(nn.Module):
                  layer_scale=None,
                  layer_scale_conv=None,
                  mixer_type: str = "attn",
+                 global_mixer: bool = False,
                  **kwargs):
         """
         Args:
@@ -706,6 +718,7 @@ class MambaVision(nn.Module):
                                      layer_scale_conv=layer_scale_conv,
                                      transformer_blocks=list(range(depths[i]//2+1, depths[i])) if depths[i]%2!=0 else list(range(depths[i]//2, depths[i])),
                                      mixer_type=mixer_type,
+                                     global_mixer=global_mixer,
                                      )
             self.levels.append(level)
         self.norm = nn.BatchNorm2d(num_features)
