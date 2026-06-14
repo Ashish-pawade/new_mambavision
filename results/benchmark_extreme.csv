@@ -1,0 +1,11 @@
+variant,resolution,seq_len_N,img_per_sec,peak_mem_MB
+attn_global,768,576,18.8,319.5
+pom_global,768,576,24.46,318.3
+attn_global,1024,1024,8.59,457.9
+pom_global,1024,1024,13.17,456.7
+attn_global,1280,1600,4.33,638.2
+pom_global,1280,1600,8.57,637.1
+attn_global,1536,2304,2.58,856.4
+pom_global,1536,2304,6.39,855.2
+attn_global,2048,4096,0.91,1414.2
+pom_global,2048,4096,3.52,1413.0

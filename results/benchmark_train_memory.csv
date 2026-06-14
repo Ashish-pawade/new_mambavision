@@ -1,0 +1,7 @@
+variant,resolution,seq_len_N,train_peak_mem_MB
+attn_global,1024,1024,2714.5
+pom_global,1024,1024,2715.9
+attn_global,1536,2304,5963.3
+pom_global,1536,2304,5970.7
+attn_global,2048,4096,10358.6
+pom_global,2048,4096,10374.0
